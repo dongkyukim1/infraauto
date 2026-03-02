@@ -7,7 +7,7 @@ InfraAuto - 공정 자동추출 모듈
 """
 
 import pandas as pd
-from database import CATEGORIES
+from core.database import CATEGORIES
 
 # ── 자재 → 공정 매핑 테이블 ─────────────────────────────────
 
@@ -23,6 +23,21 @@ PROCESS_MAP = {
         {"process": "샤시공사", "sub": "대형 샤시 설치",    "unit": "ea", "labor": "샤시공 2인", "days_per_unit": 0.8, "material_ratio": 0.5},
         {"process": "코킹공사", "sub": "창문 코킹",        "unit": "ea", "labor": "방수공 1인", "days_per_unit": 0.2, "material_ratio": 0.3},
     ],
+    "window_single": [
+        {"process": "유리공사", "sub": "단창 유리 시공",    "unit": "ea", "labor": "유리공 1인", "days_per_unit": 0.3, "material_ratio": 0.6},
+        {"process": "샤시공사", "sub": "단창 샤시 설치",    "unit": "ea", "labor": "샤시공 1인", "days_per_unit": 0.4, "material_ratio": 0.5},
+        {"process": "코킹공사", "sub": "창문 코킹",        "unit": "ea", "labor": "방수공 1인", "days_per_unit": 0.1, "material_ratio": 0.3},
+    ],
+    "window_double": [
+        {"process": "유리공사", "sub": "이중창 유리 시공",  "unit": "ea", "labor": "유리공 1인", "days_per_unit": 0.5, "material_ratio": 0.6},
+        {"process": "샤시공사", "sub": "이중창 샤시 설치",  "unit": "ea", "labor": "샤시공 2인", "days_per_unit": 0.7, "material_ratio": 0.5},
+        {"process": "코킹공사", "sub": "창문 코킹",        "unit": "ea", "labor": "방수공 1인", "days_per_unit": 0.15, "material_ratio": 0.3},
+    ],
+    "window_triple": [
+        {"process": "유리공사", "sub": "삼중창 유리 시공",  "unit": "ea", "labor": "유리공 2인", "days_per_unit": 0.7, "material_ratio": 0.6},
+        {"process": "샤시공사", "sub": "삼중창 샤시 설치",  "unit": "ea", "labor": "샤시공 2인", "days_per_unit": 0.9, "material_ratio": 0.5},
+        {"process": "코킹공사", "sub": "창문 코킹",        "unit": "ea", "labor": "방수공 1인", "days_per_unit": 0.2, "material_ratio": 0.3},
+    ],
     "door": [
         {"process": "목공사",   "sub": "문틀 설치",        "unit": "ea", "labor": "목수 1인",   "days_per_unit": 0.5, "material_ratio": 0.4},
         {"process": "철물공사", "sub": "경첩/손잡이 설치",  "unit": "ea", "labor": "목수 1인",   "days_per_unit": 0.2, "material_ratio": 0.3},
@@ -34,8 +49,13 @@ PROCESS_MAP = {
         {"process": "바닥공사", "sub": "걸레받이 시공",    "unit": "m²", "labor": "도배공 1인", "days_per_unit": 0.01, "material_ratio": 0.1},
     ],
     "wall": [
-        {"process": "미장공사", "sub": "벽체 미장",        "unit": "m",  "labor": "미장공 1인", "days_per_unit": 0.1,  "material_ratio": 0.4},
+        {"process": "미장공사", "sub": "내력벽 미장",      "unit": "m",  "labor": "미장공 1인", "days_per_unit": 0.1,  "material_ratio": 0.4},
         {"process": "도배공사", "sub": "벽지 시공",        "unit": "m",  "labor": "도배공 1인", "days_per_unit": 0.08, "material_ratio": 0.5},
+    ],
+    "wall_light": [
+        {"process": "경량벽공사", "sub": "경량 스터드 설치",  "unit": "m",  "labor": "목수 1인",   "days_per_unit": 0.08, "material_ratio": 0.4},
+        {"process": "경량벽공사", "sub": "석고보드 시공",    "unit": "m",  "labor": "목수 1인",   "days_per_unit": 0.06, "material_ratio": 0.4},
+        {"process": "도배공사",   "sub": "벽지 시공",        "unit": "m",  "labor": "도배공 1인", "days_per_unit": 0.08, "material_ratio": 0.3},
     ],
     "ceiling": [
         {"process": "천장공사", "sub": "천장틀 설치",      "unit": "m²", "labor": "목수 1인",   "days_per_unit": 0.04, "material_ratio": 0.3},
@@ -100,12 +120,14 @@ LABOR_DAILY_RATE = {
 }
 
 
-def extract_processes(estimate_items: list) -> list:
+def extract_processes(estimate_items: list, use_llm=False, llm_client=None) -> list:
     """
     견적 항목에서 세부 공정 목록을 추출합니다.
 
     Args:
         estimate_items: [{"category": str, "quantity": float, ...}, ...]
+        use_llm: LLM을 사용하여 누락 공정 검토 여부 (기본 False)
+        llm_client: OllamaClient 인스턴스 (use_llm=True일 때 사용)
 
     Returns:
         [{
@@ -165,6 +187,41 @@ def extract_processes(estimate_items: list) -> list:
                 "total_cost": total_cost,
             })
             no += 1
+
+    # LLM 누락 공정 검토
+    if use_llm and llm_client and processes:
+        try:
+            process_names = [f"{p['process']}/{p['sub_process']}" for p in processes]
+            categories = list(set(item.get("category", "") for item in estimate_items))
+            prompt = (
+                "건설 공정 전문가로서 다음 자재 목록에 대한 공정 내역을 검토하세요.\n"
+                f"자재 카테고리: {', '.join(categories)}\n"
+                f"현재 추출된 공정: {', '.join(process_names)}\n\n"
+                "누락된 공정이 있다면 JSON으로 반환하세요:\n"
+                '{"missing_processes": [{"process": "대공정명", "sub_process": "세부공정명", '
+                '"reason": "누락 사유"}]}\n'
+                "누락된 공정이 없으면 빈 배열을 반환하세요."
+            )
+            result = llm_client.generate_json(prompt)
+            missing = result.get("missing_processes", [])
+            if missing:
+                for mp in missing:
+                    processes.append({
+                        "no": no,
+                        "process": mp.get("process", "기타"),
+                        "sub_process": mp.get("sub_process", "LLM 추천 공정"),
+                        "material": "LLM 추천",
+                        "quantity": 0,
+                        "unit": "-",
+                        "material_cost": 0,
+                        "labor": "-",
+                        "labor_days": 0,
+                        "labor_cost": 0,
+                        "total_cost": 0,
+                    })
+                    no += 1
+        except Exception:
+            pass  # LLM 실패 시 기존 결과만 사용
 
     return processes
 

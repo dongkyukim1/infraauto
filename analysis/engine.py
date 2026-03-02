@@ -7,9 +7,12 @@ InfraAuto - Image Analysis Engine
 import math
 import cv2
 import numpy as np
-from database import CATEGORIES, get_price
-
-PIXEL_TO_METER = 0.1  # default, overridden by OCR in v4
+from core.database import CATEGORIES, get_price
+from config import (
+    PIXEL_TO_METER, MANHOLE_AREA_THRESHOLD,
+    HOUGH_THRESHOLD, HOUGH_MIN_LINE_LENGTH, HOUGH_MAX_LINE_GAP,
+    MIN_CONTOUR_AREA,
+)
 
 # ── Color ranges in HSV for classification ─────────────────
 # Paint uses simple solid colors. These ranges cover typical Paint colors.
@@ -118,7 +121,7 @@ def analyze_image_with_basis(img: np.ndarray, scale: float = PIXEL_TO_METER, env
                 black_mask = cv2.bitwise_and(black_mask, cv2.bitwise_not(cm))
             edges = cv2.Canny(black_mask, 50, 150)
 
-        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=30, maxLineGap=10)
+        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=HOUGH_THRESHOLD, minLineLength=HOUGH_MIN_LINE_LENGTH, maxLineGap=HOUGH_MAX_LINE_GAP)
         if lines is None or len(lines) == 0:
             continue
 
@@ -303,7 +306,7 @@ def _detect_colored_lines(img, hsv, gray) -> dict:
 
 def _hough_total_length(edges) -> float:
     """Run HoughLinesP and return total pixel length."""
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=30, maxLineGap=10)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=HOUGH_THRESHOLD, minLineLength=HOUGH_MIN_LINE_LENGTH, maxLineGap=HOUGH_MAX_LINE_GAP)
     if lines is None:
         return 0.0
     total = 0.0
@@ -320,7 +323,7 @@ def _detect_rectangles(gray) -> tuple[int, int]:
 
     manholes = 0
     handholes = 0
-    MANHOLE_AREA_THRESHOLD = 800  # pixels²
+    
 
     for cnt in contours:
         area = cv2.contourArea(cnt)

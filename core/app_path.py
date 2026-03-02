@@ -7,7 +7,8 @@ def get_base_dir():
     """번들 또는 소스 실행 시 데이터 파일 기본 경로."""
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
+    # 소스 실행 시 프로젝트 루트 (core/ 상위)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_data_path(filename):
@@ -26,4 +27,5 @@ def get_writable_dir():
         data_dir = os.path.join(app_dir, "InfraAuto_data")
         os.makedirs(data_dir, exist_ok=True)
         return data_dir
-    return os.path.dirname(os.path.abspath(__file__))
+    # 소스 실행 시 프로젝트 루트 (core/ 상위)
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

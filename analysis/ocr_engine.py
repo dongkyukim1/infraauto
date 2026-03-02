@@ -5,10 +5,157 @@ Google Cloud Vision (primary) + Tesseract (fallback).
 Scale detection, legend recognition.
 """
 
+import math
 import os
 import re
 import cv2
 import numpy as np
+
+
+def detect_dimension_text(img: np.ndarray) -> dict | None:
+    """
+    도면 이미지에서 치수 텍스트(예: "3,600", "2,400mm")를 OCR로 읽어
+    pixel_to_meter를 자동 보정한다.
+
+    프로세스:
+      1. Tesseract OCR로 숫자+mm 패턴 검출
+      2. 해당 텍스트 위치 근처에서 치수선(화살표 양 끝) 길이를 픽셀로 측정
+      3. 실제mm / 픽셀길이 = mm_per_pixel → pixel_to_meter = mm_per_pixel / 1000
+      4. 여러 치수선에서 중앙값(median) 취해 안정적 스케일 산출
+
+    Args:
+        img: BGR 이미지 (numpy array)
+
+    Returns:
+        {
+            "pixel_to_meter": float,
+            "mm_per_pixel": float,
+            "dimension_samples": [{"text", "mm_value", "pixel_length", "mm_per_pixel"}],
+            "confidence": float,  # 샘플 수 기반 신뢰도 (0~1)
+        }
+        감지 실패 시 None
+    """
+    import statistics
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
+
+    try:
+        import pytesseract
+    except ImportError:
+        return None
+
+    # 전처리: 적응형 이진화
+    processed = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+    )
+    processed = cv2.medianBlur(processed, 3)
+
+    # OCR로 텍스트+위치(bounding box) 추출
+    try:
+        data = pytesseract.image_to_data(processed, config="--oem 3 --psm 6", output_type=pytesseract.Output.DICT)
+    except Exception:
+        return None
+
+    # 치수 패턴: "3,600", "2400", "1,200mm", "600" 등
+    dim_pattern = re.compile(r"(\d{1,2}[,.]?\d{3})\s*(?:mm)?")
+
+    samples = []
+    h_img, w_img = gray.shape[:2]
+
+    n_boxes = len(data["text"])
+    for i in range(n_boxes):
+        text = str(data["text"][i]).strip()
+        if not text:
+            continue
+
+        match = dim_pattern.fullmatch(text)
+        if not match:
+            continue
+
+        # 숫자 추출 (콤마/점 제거)
+        raw_num = match.group(1).replace(",", "").replace(".", "")
+        try:
+            mm_value = float(raw_num)
+        except ValueError:
+            continue
+
+        if mm_value < 100 or mm_value > 30000:
+            continue  # 비합리적 치수 제외
+
+        # 텍스트 bounding box
+        tx = data["left"][i]
+        ty = data["top"][i]
+        tw = data["width"][i]
+        th = data["height"][i]
+
+        # 치수선 탐색: 텍스트 좌우 또는 상하로 연장된 직선 찾기
+        pixel_length = _find_dimension_line_length(gray, tx, ty, tw, th)
+        if pixel_length and pixel_length > 10:
+            mpp = mm_value / pixel_length
+            samples.append({
+                "text": text,
+                "mm_value": mm_value,
+                "pixel_length": round(pixel_length, 1),
+                "mm_per_pixel": round(mpp, 4),
+            })
+
+    if not samples:
+        return None
+
+    # 중앙값으로 안정적 스케일 산출
+    mpp_values = [s["mm_per_pixel"] for s in samples]
+    median_mpp = statistics.median(mpp_values)
+    pixel_to_meter = median_mpp / 1000
+
+    # 신뢰도: 샘플 수 기반 (1개=0.3, 3개=0.7, 5+개=0.9)
+    confidence = min(0.9, 0.2 + len(samples) * 0.15)
+
+    return {
+        "pixel_to_meter": round(pixel_to_meter, 6),
+        "mm_per_pixel": round(median_mpp, 4),
+        "dimension_samples": samples,
+        "confidence": round(confidence, 2),
+    }
+
+
+def _find_dimension_line_length(gray: np.ndarray, tx: int, ty: int, tw: int, th: int) -> float | None:
+    """
+    치수 텍스트 주변에서 치수선(수평/수직 직선)의 픽셀 길이를 측정한다.
+
+    텍스트 위/아래 또는 좌/우에서 수평/수직 직선을 HoughLinesP로 검출하고,
+    가장 긴 선분의 길이를 반환한다.
+    """
+    h_img, w_img = gray.shape[:2]
+
+    # 텍스트 주변 확장 영역 (텍스트 높이의 3배 범위)
+    margin = max(th * 3, 30)
+    rx1 = max(0, tx - margin)
+    ry1 = max(0, ty - margin)
+    rx2 = min(w_img, tx + tw + margin)
+    ry2 = min(h_img, ty + th + margin)
+
+    roi = gray[ry1:ry2, rx1:rx2]
+    if roi.size == 0:
+        return None
+
+    edges = cv2.Canny(roi, 50, 150)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=20, minLineLength=15, maxLineGap=5)
+
+    if lines is None:
+        return None
+
+    best_length = 0
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        length = math.hypot(x2 - x1, y2 - y1)
+        # 수평 또는 수직에 가까운 선만 (치수선은 보통 직교)
+        angle = abs(math.atan2(y2 - y1, x2 - x1))
+        is_horizontal = angle < 0.2  # ~11도 이내
+        is_vertical = abs(angle - math.pi / 2) < 0.2
+        if (is_horizontal or is_vertical) and length > best_length:
+            best_length = length
+
+    return best_length if best_length > 0 else None
 
 
 def detect_scale(image_path: str, engine: str = "tesseract", api_key_path: str = None) -> dict:

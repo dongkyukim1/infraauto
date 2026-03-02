@@ -3,10 +3,21 @@
 
 a = Analysis(
     ['infra_auto_gui.py'],
-    pathex=[],
+    pathex=['.'],
     binaries=[],
-    datas=[('pricing.db', '.'), ('models', 'models'), ('sample_historical_data.csv', '.')],
-    hiddenimports=['app_path', 'building_engine', 'process_mapper', 'ml_predictor', 'database', 'engine'],
+    datas=[
+        ('pricing.db', '.'),
+        ('resources/models', 'models'),
+        ('config.py', '.'),
+    ],
+    hiddenimports=[
+        'config',
+        'core', 'core.app_path', 'core.database',
+        'analysis', 'analysis.engine', 'analysis.building_engine',
+        'analysis.llm_engine', 'analysis.llm_analyzer',
+        'analysis.ml_predictor', 'analysis.ocr_engine',
+        'export', 'export.excel_exporter', 'export.process_mapper',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -32,7 +43,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icon_auto.icns'],
+    icon='resources/icon_auto.ico',
 )
 coll = COLLECT(
     exe,
@@ -42,10 +53,4 @@ coll = COLLECT(
     upx=True,
     upx_exclude=[],
     name='InfraAuto',
-)
-app = BUNDLE(
-    coll,
-    name='InfraAuto.app',
-    icon='icon_auto.icns',
-    bundle_identifier=None,
 )

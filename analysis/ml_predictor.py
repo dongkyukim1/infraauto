@@ -13,7 +13,7 @@ import joblib
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import LabelEncoder
-from app_path import get_base_dir, get_writable_dir
+from core.app_path import get_base_dir, get_writable_dir
 
 _writable = get_writable_dir()
 MODEL_DIR = os.path.join(_writable, "models")
