@@ -8,6 +8,8 @@ a = Analysis(
     datas=[
         ('pricing.db', '.'),
         ('resources/models', 'models'),
+        ('resources/icon_auto.ico', 'resources'),
+        ('resources/icon_auto.png', 'resources'),
         ('config.py', '.'),
     ],
     hiddenimports=[
@@ -17,6 +19,8 @@ a = Analysis(
         'analysis.llm_engine', 'analysis.llm_analyzer',
         'analysis.ml_predictor', 'analysis.ocr_engine',
         'export', 'export.excel_exporter', 'export.process_mapper',
+        'gui', 'gui.styles', 'gui.dialogs', 'gui.workers', 'gui.canvas',
+        'statistics',
     ],
     hookspath=[],
     hooksconfig={},

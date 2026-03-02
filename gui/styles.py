@@ -6,10 +6,13 @@ InfraAuto - GUI 스타일 및 도구 상수
 
 from PyQt5.QtGui import QColor
 
+# Windows 보장 한글 폰트
+KOREAN_FONT = "Malgun Gothic"
+
 GLOBAL_STYLE = """
 /* Global Font & Background */
 QWidget {
-    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', sans-serif;
+    font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
     color: #2C3E50;
     background-color: #F4F6F8;
 }
@@ -20,8 +23,8 @@ QGroupBox {
     font-weight: bold;
     border: 1px solid #E2E8F0;
     border-radius: 8px;
-    margin-top: 14px;
-    padding-top: 14px;
+    margin-top: 18px;
+    padding-top: 16px;
     background-color: #FFFFFF;
 }
 QGroupBox::title {
@@ -29,7 +32,7 @@ QGroupBox::title {
     subcontrol-position: top left;
     padding: 0 8px;
     left: 12px;
-    color: #475569;
+    color: #334155;
 }
 
 /* ComboBox */
@@ -141,6 +144,78 @@ QScrollBar::handle:vertical:hover {
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
+
+/* Canvas */
+QWidget#canvas_widget {
+    background: white;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+}
+
+/* Toolbar frame */
+QFrame#toolbar_frame {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 6px;
+}
+
+/* Bottom action buttons */
+QPushButton#btn_load {
+    background-color: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: #334155;
+    font-weight: bold;
+}
+QPushButton#btn_load:hover {
+    background-color: #F8FAFC;
+    border: 1px solid #94A3B8;
+}
+
+QPushButton#btn_undo {
+    background-color: #FFF7ED;
+    border: 1px solid #FDBA74;
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: #C2410C;
+    font-weight: bold;
+}
+QPushButton#btn_undo:hover {
+    background-color: #FFEDD5;
+    border: 1px solid #FB923C;
+}
+
+QPushButton#btn_clear {
+    background-color: #FEF2F2;
+    border: 1px solid #FCA5A5;
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: #DC2626;
+    font-weight: bold;
+}
+QPushButton#btn_clear:hover {
+    background-color: #FEE2E2;
+    border: 1px solid #F87171;
+}
+
+/* Export button */
+QPushButton#btn_export {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #2563EB, stop:1 #3B82F6);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+}
+QPushButton#btn_export:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #1D4ED8, stop:1 #2563EB);
+}
+QPushButton#btn_export:pressed {
+    background-color: #1E40AF;
+}
 """
 
 # -- Infra tools --
@@ -158,14 +233,18 @@ INFRA_TOOLS = [
 # -- Building tools --
 
 BUILDING_TOOLS = [
-    {"key": "window_s",  "label": "창문(소)", "shape": "rect",   "color": QColor(100, 180, 255), "bgr": (255, 180, 100)},
-    {"key": "window_l",  "label": "창문(대)", "shape": "rect",   "color": QColor(30, 80, 220),   "bgr": (220, 80, 30)},
-    {"key": "door",      "label": "문",       "shape": "rect",   "color": QColor(160, 100, 50),  "bgr": (50, 100, 160)},
-    {"key": "flooring",  "label": "장판",     "shape": "area",   "color": QColor(100, 200, 80),  "bgr": (80, 200, 100)},
-    {"key": "wall",      "label": "벽체",     "shape": "line",   "color": QColor(240, 140, 20),  "bgr": (20, 140, 240)},
-    {"key": "ceiling",   "label": "천장",     "shape": "area",   "color": QColor(160, 80, 200),  "bgr": (200, 80, 160)},
-    {"key": "tile",      "label": "타일",     "shape": "area",   "color": QColor(0, 180, 180),   "bgr": (180, 180, 0)},
-    {"key": "paint",     "label": "도장",     "shape": "area",   "color": QColor(255, 150, 180), "bgr": (180, 150, 255)},
+    {"key": "window_s",      "label": "창문(소)",  "shape": "rect",   "color": QColor(100, 180, 255), "bgr": (255, 180, 100)},
+    {"key": "window_l",      "label": "창문(대)",  "shape": "rect",   "color": QColor(30, 80, 220),   "bgr": (220, 80, 30)},
+    {"key": "window_single", "label": "단창",      "shape": "rect",   "color": QColor(130, 200, 255), "bgr": (255, 200, 130)},
+    {"key": "window_double", "label": "이중창",    "shape": "rect",   "color": QColor(60, 130, 230),  "bgr": (230, 130, 60)},
+    {"key": "window_triple", "label": "삼중창",    "shape": "rect",   "color": QColor(20, 60, 180),   "bgr": (180, 60, 20)},
+    {"key": "door",          "label": "문",        "shape": "rect",   "color": QColor(160, 100, 50),  "bgr": (50, 100, 160)},
+    {"key": "flooring",      "label": "장판",      "shape": "area",   "color": QColor(100, 200, 80),  "bgr": (80, 200, 100)},
+    {"key": "wall",          "label": "내력벽",    "shape": "line",   "color": QColor(240, 140, 20),  "bgr": (20, 140, 240)},
+    {"key": "wall_light",    "label": "경량벽",    "shape": "line",   "color": QColor(240, 190, 80),  "bgr": (80, 190, 240)},
+    {"key": "ceiling",       "label": "천장",      "shape": "area",   "color": QColor(160, 80, 200),  "bgr": (200, 80, 160)},
+    {"key": "tile",          "label": "타일",      "shape": "area",   "color": QColor(0, 180, 180),   "bgr": (180, 180, 0)},
+    {"key": "paint",         "label": "도장",      "shape": "area",   "color": QColor(255, 150, 180), "bgr": (180, 150, 255)},
 ]
 
 SHAPE_LABELS = {"line": "\u2501", "rect": "\u25a1", "circle": "\u25cb", "area": "\u25a8"}

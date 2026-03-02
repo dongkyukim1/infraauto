@@ -11,13 +11,14 @@ from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont, QPainter, QPen, QColor, QCursor
 
 from config import PIXEL_TO_METER
+from gui.styles import KOREAN_FONT
 
 
 class DrawingCanvas(QWidget):
     def __init__(self, on_change=None, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(750, 480)
-        self.setStyleSheet("background-color: white;")
+        self.setMinimumSize(580, 400)
+        self.setObjectName("canvas_widget")
         self.setCursor(QCursor(Qt.CrossCursor))
 
         self.on_change = on_change
@@ -93,11 +94,20 @@ class DrawingCanvas(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
 
+        # White background
+        p.fillRect(self.rect(), QColor(255, 255, 255))
+
         # Grid dots
         p.setPen(QPen(QColor(230, 230, 230), 1))
         for x in range(0, self.width(), 30):
             for y in range(0, self.height(), 30):
                 p.drawPoint(x, y)
+
+        # Empty state guide text
+        if not self.items and not self.drawing:
+            p.setPen(QPen(QColor(180, 190, 200)))
+            p.setFont(QFont(KOREAN_FONT, 14))
+            p.drawText(self.rect(), Qt.AlignCenter, "도구를 선택하고 이곳에 도면을 그려주세요")
 
         # Draw items
         for shape, key, color, data in self.items:
@@ -115,7 +125,7 @@ class DrawingCanvas(QWidget):
                     ex = sx
                 self._draw_item(p, "line", self.tool_color, (sx, sy, ex, ey), Qt.DashLine)
                 m = math.hypot(ex - sx, ey - sy) * PIXEL_TO_METER
-                p.setFont(QFont("Helvetica", 9))
+                p.setFont(QFont(KOREAN_FONT, 9))
                 p.setPen(QPen(self.tool_color))
                 p.drawText((sx + ex) // 2 + 8, (sy + ey) // 2 - 8, f"{m:.1f}m")
 
@@ -125,7 +135,7 @@ class DrawingCanvas(QWidget):
                 # 면적 표시
                 w_m = abs(ex - sx) * PIXEL_TO_METER
                 h_m = abs(ey - sy) * PIXEL_TO_METER
-                p.setFont(QFont("Helvetica", 9))
+                p.setFont(QFont(KOREAN_FONT, 9))
                 p.setPen(QPen(self.tool_color))
                 label = f"{w_m:.1f}x{h_m:.1f}m"
                 if self.tool_shape == "area":

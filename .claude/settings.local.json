@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(rm:*)",
+      "Bash(pip install:*)",
+      "Bash(mkdir:*)",
+      "Bash(pyinstaller:*)",
+      "WebFetch(domain:blog.howbuild.com)",
+      "Bash(python3:*)",
+      "mcp__sequential-thinking__sequentialthinking"
+    ]
+  }
+}

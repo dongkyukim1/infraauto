@@ -14,7 +14,8 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QTableWidget, QTableWidgetItem,
     QHeaderView, QFileDialog, QMessageBox, QButtonGroup,
     QFrame, QTabWidget, QComboBox, QGroupBox, QCheckBox,
-    QDialog, QLineEdit, QProgressBar,
+    QDialog, QLineEdit, QProgressBar, QSplitter, QSizePolicy,
+    QGridLayout, QGraphicsDropShadowEffect,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QColor
@@ -24,7 +25,7 @@ from export.process_mapper import extract_processes, get_process_summary, export
 import config
 from config import PIXEL_TO_METER
 
-from gui.styles import GLOBAL_STYLE, INFRA_TOOLS, BUILDING_TOOLS, SHAPE_LABELS
+from gui.styles import GLOBAL_STYLE, INFRA_TOOLS, BUILDING_TOOLS, SHAPE_LABELS, KOREAN_FONT
 from gui.dialogs import LLMSettingsDialog
 from gui.workers import LLMAnalysisWorker
 from gui.canvas import DrawingCanvas
@@ -46,28 +47,43 @@ class InfraAutoApp(QWidget):
 
     def init_ui(self):
         self.setWindowTitle(f"InfraAuto v{config.VERSION} - 통합 견적 플랫폼")
-        self.setMinimumSize(1400, 800)
+        self.setMinimumSize(1280, 780)
         self.setStyleSheet(GLOBAL_STYLE)
 
-        main = QHBoxLayout()
+        main = QVBoxLayout()
         main.setContentsMargins(24, 24, 24, 24)
-        main.setSpacing(24)
+        main.setSpacing(0)
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.setHandleWidth(6)
+        splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #E2E8F0;
+                border-radius: 3px;
+                margin: 4px 2px;
+            }
+            QSplitter::handle:hover {
+                background: #94A3B8;
+            }
+        """)
 
         # ── Left: Canvas area ──────────────────────────────
+        left_widget = QWidget()
         left = QVBoxLayout()
         left.setSpacing(12)
+        left.setContentsMargins(0, 0, 12, 0)
 
         # Title + Mode selector
         title_row = QHBoxLayout()
         title = QLabel(f"InfraAuto v{config.VERSION}")
-        title.setFont(QFont("Helvetica", 20, QFont.Bold))
+        title.setFont(QFont(KOREAN_FONT, 20, QFont.Bold))
         title.setStyleSheet("color: #1E293B;")
         title_row.addWidget(title)
         title_row.addStretch()
 
         # 모드 선택
         mode_label = QLabel("모드:")
-        mode_label.setFont(QFont("Helvetica", 13, QFont.Bold))
+        mode_label.setFont(QFont(KOREAN_FONT, 13, QFont.Bold))
         mode_label.setStyleSheet("color: #475569;")
         title_row.addWidget(mode_label)
 
@@ -131,35 +147,24 @@ class InfraAutoApp(QWidget):
         env_group.setLayout(env_layout)
         left.addWidget(env_group)
 
-        # ── LLM 설정 패널 ────────────────────────────────
+        # ── LLM 설정 패널 (2행 구조) ────────────────────
         llm_group = QGroupBox("LLM 분석 설정")
-        llm_layout = QHBoxLayout()
-        llm_layout.setContentsMargins(16, 20, 16, 16)
-        llm_layout.setSpacing(12)
+        llm_outer = QVBoxLayout()
+        llm_outer.setContentsMargins(16, 20, 16, 12)
+        llm_outer.setSpacing(8)
 
+        # Row 1: 체크박스 + 상태 + 설정 버튼
+        llm_row1 = QHBoxLayout()
+        llm_row1.setSpacing(12)
         self.llm_checkbox = QCheckBox("LLM 분석 사용")
         self.llm_checkbox.setChecked(config.LLM_ENABLED)
         self.llm_checkbox.stateChanged.connect(self._on_llm_toggle)
-        llm_layout.addWidget(self.llm_checkbox)
+        llm_row1.addWidget(self.llm_checkbox)
 
         self.llm_status_label = QLabel("확인 중...")
         self.llm_status_label.setStyleSheet("font-size: 12px; color: #64748B;")
-        llm_layout.addWidget(self.llm_status_label)
-
-        llm_layout.addStretch()
-
-        # 프로젝트 정보
-        llm_layout.addWidget(QLabel("프로젝트:"))
-        self.project_name_edit = QLineEdit(config.PROJECT_NAME)
-        self.project_name_edit.setFixedWidth(150)
-        self.project_name_edit.setPlaceholderText("프로젝트명")
-        llm_layout.addWidget(self.project_name_edit)
-
-        llm_layout.addWidget(QLabel("회사:"))
-        self.company_name_edit = QLineEdit(config.COMPANY_NAME)
-        self.company_name_edit.setFixedWidth(130)
-        self.company_name_edit.setPlaceholderText("회사명")
-        llm_layout.addWidget(self.company_name_edit)
+        self.llm_status_label.setMinimumWidth(180)
+        llm_row1.addWidget(self.llm_status_label, 1)
 
         llm_settings_btn = QPushButton("LLM 설정")
         llm_settings_btn.setFixedHeight(32)
@@ -176,49 +181,68 @@ class InfraAutoApp(QWidget):
             QPushButton:pressed { background-color: #5B21B6; }
         """)
         llm_settings_btn.clicked.connect(self._open_llm_settings)
-        llm_layout.addWidget(llm_settings_btn)
+        llm_row1.addWidget(llm_settings_btn)
+        llm_outer.addLayout(llm_row1)
 
-        llm_group.setLayout(llm_layout)
+        # Row 2: 프로젝트명 + 회사명
+        llm_row2 = QHBoxLayout()
+        llm_row2.setSpacing(12)
+        llm_row2.addWidget(QLabel("프로젝트:"))
+        self.project_name_edit = QLineEdit(config.PROJECT_NAME)
+        self.project_name_edit.setPlaceholderText("프로젝트명")
+        llm_row2.addWidget(self.project_name_edit, 1)
+
+        llm_row2.addWidget(QLabel("회사:"))
+        self.company_name_edit = QLineEdit(config.COMPANY_NAME)
+        self.company_name_edit.setPlaceholderText("회사명")
+        llm_row2.addWidget(self.company_name_edit, 1)
+        llm_outer.addLayout(llm_row2)
+
+        llm_group.setLayout(llm_outer)
         left.addWidget(llm_group)
 
         # Canvas (toolbar보다 먼저 생성 - set_tool 호출 필요)
         self.canvas = DrawingCanvas(on_change=self.update_estimate)
-        self.canvas.setStyleSheet("background: white; border: 1px solid #CBD5E1; border-radius: 8px;")
 
-        # Toolbar
-        self.toolbar_layout = QHBoxLayout()
-        self.toolbar_layout.setSpacing(8)
+        # Toolbar (QGridLayout in QFrame)
+        self.toolbar_frame = QFrame()
+        self.toolbar_frame.setObjectName("toolbar_frame")
+        self.toolbar_layout = QGridLayout()
+        self.toolbar_layout.setSpacing(6)
+        self.toolbar_layout.setContentsMargins(6, 6, 6, 6)
+        self.toolbar_frame.setLayout(self.toolbar_layout)
         self.tool_group = QButtonGroup()
         self.tool_group.setExclusive(True)
         self.tool_buttons = []
 
         self._build_toolbar(BUILDING_TOOLS)
 
-        left.addLayout(self.toolbar_layout)
+        left.addWidget(self.toolbar_frame)
         left.addWidget(self.canvas)
 
         # Bottom buttons
         load_row = QHBoxLayout()
-        load_btn = QPushButton("PNG 불러오기")
+        load_btn = QPushButton("PNG / PDF 불러오기")
+        load_btn.setObjectName("btn_load")
         load_btn.setFixedHeight(36)
         load_btn.clicked.connect(self.load_image)
         load_row.addWidget(load_btn)
         load_row.addStretch()
 
         undo_btn = QPushButton("\u21a9 되돌리기")
+        undo_btn.setObjectName("btn_undo")
         undo_btn.setFixedHeight(36)
         undo_btn.clicked.connect(lambda: self.canvas.undo())
         load_row.addWidget(undo_btn)
 
-        clear_btn = QPushButton("전체삭제")
+        clear_btn = QPushButton("전체 삭제")
+        clear_btn.setObjectName("btn_clear")
         clear_btn.setFixedHeight(36)
-        clear_btn.setStyleSheet("color: #DC2626;")
         clear_btn.clicked.connect(lambda: self.canvas.clear_all())
         load_row.addWidget(clear_btn)
 
         left.addLayout(load_row)
 
-        left_widget = QWidget()
         left_widget.setLayout(left)
 
         # ── Right: Tabs (견적 + 공정) ─────────────────────
@@ -256,7 +280,7 @@ class InfraAutoApp(QWidget):
         est_layout.addWidget(self.table)
 
         self.total_label = QLabel("합계: 0 원")
-        self.total_label.setFont(QFont("Helvetica", 18, QFont.Bold))
+        self.total_label.setFont(QFont(KOREAN_FONT, 18, QFont.Bold))
         self.total_label.setAlignment(Qt.AlignRight)
         self.total_label.setStyleSheet("color: #E11D48; padding: 8px;")
         est_layout.addWidget(self.total_label)
@@ -298,7 +322,7 @@ class InfraAutoApp(QWidget):
         proc_layout.addWidget(self.proc_table)
 
         self.proc_total_label = QLabel("공정 합계: 0 원 | 예상 소요일: 0일")
-        self.proc_total_label.setFont(QFont("Helvetica", 14, QFont.Bold))
+        self.proc_total_label.setFont(QFont(KOREAN_FONT, 14, QFont.Bold))
         self.proc_total_label.setAlignment(Qt.AlignRight)
         self.proc_total_label.setStyleSheet("color: #059669; padding: 8px;")
         proc_layout.addWidget(self.proc_total_label)
@@ -348,7 +372,7 @@ class InfraAutoApp(QWidget):
         # 전체 진행률 바
         progress_row = QHBoxLayout()
         progress_label = QLabel("전체 진행률:")
-        progress_label.setFont(QFont("Helvetica", 13, QFont.Bold))
+        progress_label.setFont(QFont(KOREAN_FONT, 13, QFont.Bold))
         progress_row.addWidget(progress_label)
 
         self.overall_progress = QProgressBar()
@@ -372,7 +396,7 @@ class InfraAutoApp(QWidget):
         progress_row.addWidget(self.overall_progress)
 
         self.progress_text = QLabel("0%")
-        self.progress_text.setFont(QFont("Helvetica", 14, QFont.Bold))
+        self.progress_text.setFont(QFont(KOREAN_FONT, 14, QFont.Bold))
         self.progress_text.setStyleSheet("color: #059669;")
         progress_row.addWidget(self.progress_text)
 
@@ -390,41 +414,38 @@ class InfraAutoApp(QWidget):
 
         # Export button
         export_btn = QPushButton("통합 견적서 Excel 저장")
-        export_btn.setFont(QFont("Helvetica", 15, QFont.Bold))
+        export_btn.setObjectName("btn_export")
+        export_btn.setFont(QFont(KOREAN_FONT, 15, QFont.Bold))
         export_btn.setFixedHeight(56)
-        export_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2563EB;
-                color: white;
-                border: none;
-                border-radius: 8px;
-            }
-            QPushButton:hover { background-color: #1D4ED8; }
-            QPushButton:pressed { background-color: #1E40AF; }
-        """)
         export_btn.clicked.connect(self.export_excel)
         right.addWidget(export_btn)
 
         right_widget = QWidget()
         right_widget.setLayout(right)
-        right_widget.setFixedWidth(600)
+        right_widget.setMinimumWidth(460)
 
-        # ── Layout ─────────────────────────────────────────
-        main.addWidget(left_widget, 1)
+        # ── Layout: QSplitter ─────────────────────────────
+        splitter.addWidget(left_widget)
+        splitter.addWidget(right_widget)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        sep.setStyleSheet("color: #E2E8F0; border-width: 1px;")
-        main.addWidget(sep)
-
-        main.addWidget(right_widget)
-
+        main.addWidget(splitter)
         self.setLayout(main)
+
+        # GroupBox 카드 그림자 효과
+        for gb in self.findChildren(QGroupBox):
+            shadow = QGraphicsDropShadowEffect()
+            shadow.setBlurRadius(12)
+            shadow.setOffset(0, 2)
+            shadow.setColor(QColor(0, 0, 0, 18))
+            gb.setGraphicsEffect(shadow)
+
         self._update_ml_status()
         self.update_estimate()
 
     def _build_toolbar(self, tools):
-        """도구 버튼 빌드."""
+        """도구 버튼 빌드 (QGridLayout)."""
         # 기존 버튼 제거
         for btn in self.tool_buttons:
             self.toolbar_layout.removeWidget(btn)
@@ -432,17 +453,27 @@ class InfraAutoApp(QWidget):
             btn.deleteLater()
         self.tool_buttons.clear()
 
+        # 그리드 열 수 결정: 건축 12개 → 2행x6열, 인프라 7개 → 1행x7열
+        n = len(tools)
+        if n > 7:
+            cols = 6
+        else:
+            cols = n
+
         for i, t in enumerate(tools):
+            row = i // cols
+            col = i % cols
             label = f"{SHAPE_LABELS.get(t['shape'], '?')} {t['label']}"
             btn = QPushButton(label)
             btn.setCheckable(True)
-            btn.setFixedHeight(40)
+            btn.setMinimumHeight(34)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             c = t["color"]
             fg = "white" if c.lightness() < 140 else "black"
 
             btn.setStyleSheet(f"""
                 QPushButton {{
-                    padding: 6px 12px;
+                    padding: 6px 8px;
                     border: 1px solid #CBD5E1;
                     border-radius: 6px;
                     font-size: 13px;
@@ -461,12 +492,16 @@ class InfraAutoApp(QWidget):
                 }}
             """)
             btn.clicked.connect(lambda _, tt=t: self.canvas.set_tool(tt["key"], tt["shape"], tt["color"]))
-            self.toolbar_layout.addWidget(btn)
+            self.toolbar_layout.addWidget(btn, row, col)
             self.tool_group.addButton(btn, i)
             self.tool_buttons.append(btn)
             if i == 0:
                 btn.setChecked(True)
                 self.canvas.set_tool(t["key"], t["shape"], t["color"])
+
+        # 균등 열 배분
+        for c in range(cols):
+            self.toolbar_layout.setColumnStretch(c, 1)
 
     def _on_mode_change(self, index):
         """모드 전환."""
@@ -596,7 +631,7 @@ class InfraAutoApp(QWidget):
             self.table.setItem(i, 4, ti)
             bi = QTableWidgetItem(r["basis"])
             bi.setToolTip(r["basis"])
-            bi.setFont(QFont("Helvetica", 9))
+            bi.setFont(QFont(KOREAN_FONT, 9))
             bi.setForeground(QColor(100, 100, 100))
             self.table.setItem(i, 5, bi)
 
@@ -739,7 +774,7 @@ class InfraAutoApp(QWidget):
         # OpenCV 분석 (기존 방식)
         if self.current_mode == "building":
             from analysis.building_engine import analyze_building_image
-            result = analyze_building_image(img, scale, env_type)
+            result = analyze_building_image(img, scale, env_type, use_ocr_scale=True)
         else:
             from analysis.engine import analyze_image_with_basis
             result = analyze_image_with_basis(img, scale, env_type)
@@ -771,7 +806,7 @@ class InfraAutoApp(QWidget):
             self.table.setItem(i, 4, ti)
             bi = QTableWidgetItem(r["basis"])
             bi.setToolTip(r["basis"])
-            bi.setFont(QFont("Helvetica", 9))
+            bi.setFont(QFont(KOREAN_FONT, 9))
             bi.setForeground(QColor(100, 100, 100))
             self.table.setItem(i, 5, bi)
 
@@ -779,7 +814,16 @@ class InfraAutoApp(QWidget):
         self.total_label.setText(f"합계: {result['grand_total']:,} 원")
         self._current_rows = rows
         self._current_total = result["grand_total"]
-        self.statusBar_label.setText("OpenCV 분석 완료")
+
+        # 상태바: 분석 결과 상세 표시
+        status_parts = ["OpenCV 분석 완료"]
+        if result.get("ocr_scale"):
+            status_parts.append(f"치수OCR 보정: 1px={result['ocr_scale']:.4f}m")
+        if result.get("grid_info"):
+            gi = result["grid_info"]
+            n_bubbles = len(gi.get("bubbles", []))
+            status_parts.append(f"그리드: 버블 {n_bubbles}개")
+        self.statusBar_label.setText(" | ".join(status_parts))
 
         # 공정 갱신
         self._update_processes(rows, result["grand_total"])
@@ -911,7 +955,7 @@ class InfraAutoApp(QWidget):
             self.table.setItem(i, 4, ti)
             bi = QTableWidgetItem(r["basis"])
             bi.setToolTip(r["basis"])
-            bi.setFont(QFont("Helvetica", 9))
+            bi.setFont(QFont(KOREAN_FONT, 9))
             bi.setForeground(QColor(100, 100, 100))
             self.table.setItem(i, 5, bi)
 
